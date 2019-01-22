@@ -32,15 +32,22 @@ class WorkerModel(object):
        listen on these sockets for messages and send messages to these sockets.
     """
 
-    def __init__(self, engine, socket_dir, shared_file_system):
+    def __init__(self, engine, socket_dir):
         self._engine = engine
         self._socket_dir = socket_dir
-        self.shared_file_system = shared_file_system
 
-    def worker_checkin(self, user_id, worker_id, tag, cpus, gpus, memory_bytes, dependencies):
+    def worker_checkin(self, user_id, worker_id, tag, cpus, gpus, memory_bytes, dependencies, shared_filesystem_worker):
         """
         Adds the worker to the database, if not yet there. Returns the socket ID
         that the worker should listen for messages on.
+        :param user_id: ID of user running the worker
+        :param worker_id" ID of the worker
+        :param tag: Tag that the worker was booted with
+        :param cpus: Number of CPUs of the worker
+        :param gpus: Number of GPUs of the worker
+        :param memory_bytes: Total memory of worker in bytes
+        :param dependencies: Bundles that are already in the dependency cache of the worker
+        :param shared_filesystem_worker: If True means worker shares a filesystem with the bundle store
         """
         with self._engine.begin() as conn:
             worker_row = {
@@ -49,6 +56,7 @@ class WorkerModel(object):
                 'gpus': gpus,
                 'memory_bytes': memory_bytes,
                 'checkin_time': datetime.datetime.now(),
+                'shared_filesystem_worker': bool(shared_filesystem_worker)
             }
             existing_row = conn.execute(
                 cl_worker.select().where(
@@ -167,6 +175,7 @@ class WorkerModel(object):
                 'run_uuids': [],
                 'dependencies': row.dependencies
                 and self._deserialize_dependencies(row.dependencies),
+                'shared_filesystem_worker': row.shared_filesystem_worker,
             }
             for row in worker_rows
         }
@@ -192,6 +201,7 @@ class WorkerModel(object):
             return {
                 'user_id': worker_row.user_id,
                 'worker_id': worker_row.worker_id,
+                'shared_filesystem_worker': worker_row.shared_filesystem_worker,
                 'socket_id': worker_row.socket_id,
             }
 

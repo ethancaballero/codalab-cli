@@ -31,7 +31,7 @@ class Worker(object):
         worker_id,  # type: str
         tag,  # type: str
         work_dir,  # type: str
-        exit_when_idle,  # type: str
+        shared_file_system,  # type: bool
         bundle_service,  # type: BundleServiceClient
     ):
         self.id = worker_id
@@ -39,7 +39,7 @@ class Worker(object):
         self._tag = tag
         self._work_dir = work_dir
         self._bundle_service = bundle_service
-        self._exit_when_idle = exit_when_idle
+        self._shared_file_system = shared_file_system
         self._stop = False
         self._last_checkin_successful = False
         self._run_manager = create_run_manager(self)
@@ -56,13 +56,6 @@ class Worker(object):
                 if not self._last_checkin_successful:
                     logger.info('Connected! Successful check in.')
                 self._last_checkin_successful = True
-                if (
-                    self._exit_when_idle
-                    and self._last_checkin_successful
-                    and len(self._run_manager.all_runs) == 0
-                ):
-                    self._stop = True
-                    break
 
             except Exception:
                 self._last_checkin_successful = False
@@ -88,6 +81,7 @@ class Worker(object):
             'dependencies': self._run_manager.all_dependencies,
             'hostname': socket.gethostname(),
             'runs': self._run_manager.all_runs,
+            'shared_filesystem_worker': self._shared_file_system,
         }
         response = self._bundle_service.checkin(self.id, request)
         if response:
